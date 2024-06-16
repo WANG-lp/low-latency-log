@@ -4,11 +4,11 @@ macro_rules! log {
         // let file = std::file!();
         // let line = std::line!();
         let func = $crate::internal::LoggingFunc::new(
-            move |rolling_logger: &mut $crate::RollingLogger| {
-                // let _ = rolling_logger.write_with_datetime(file.as_bytes());
+            move |rolling_logger: &mut $crate::RollingLogger, file: &str, line: u32| {
+                let _ = rolling_logger.write_with_datetime(file.as_bytes());
                 // let _ = rolling_logger.write_with_datetime(line);
 
-                // ufmt::uwriteln!(&mut rolling_logger, $fmt, $($arg)+).unwrap();
+                // ufmt::uwriteln!(rolling_logger, $fmt, $($arg)+).unwrap();
             },
             std::file!(),
             std::line!(),
@@ -22,8 +22,8 @@ macro_rules! log {
         // let file = std::file!();
         // let line = std::line!();
         let func = $crate::internal::LoggingFunc::new(
-            move |rolling_logger: &mut $crate::RollingLogger| {
-                // let _ = rolling_logger.write_with_datetime(file.as_bytes());
+            move |rolling_logger: &mut $crate::RollingLogger, file: &str, line: u32| {
+                let _ = rolling_logger.write_with_datetime(file.as_bytes());
                 // ufmt::uwriteln!(&mut rolling_logger, $fmt).unwrap();
             },
             std::file!(),

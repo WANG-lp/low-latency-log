@@ -54,18 +54,22 @@ impl LogLevel {
 }
 
 pub struct LoggingFunc {
-    func: fn(&mut RollingLogger),
+    func: fn(&mut RollingLogger, file: &str, line: u32),
     file: &'static str,
     line: u32,
 }
 
 impl LoggingFunc {
     #[allow(dead_code)]
-    pub fn new(func: fn(&mut RollingLogger), file: &'static str, line: u32) -> LoggingFunc {
+    pub fn new(
+        func: fn(&mut RollingLogger, file: &str, line: u32),
+        file: &'static str,
+        line: u32,
+    ) -> LoggingFunc {
         LoggingFunc { func, file, line }
     }
     fn invoke(self, rolling_logger: &mut RollingLogger) {
-        (self.func)(rolling_logger);
+        (self.func)(rolling_logger, &self.file, self.line);
     }
 }
 
@@ -367,13 +371,13 @@ impl RollingLogger {
         // }
         // self.open_writer_if_needed(now)?;
 
-        // let writer = self.writer_buffer.as_mut().unwrap();
-        // let buf_len = buf.len();
-        // writer.write_all(buf).map(|_| {
-        //     self.current_file_size += u64::try_from(buf_len).unwrap_or(u64::MAX);
-        //     buf_len
-        // })
-        Ok(1)
+        let writer = self.writer_buffer.as_mut().unwrap();
+        let buf_len = buf.len();
+        writer.write_all(buf).map(|_| {
+            self.current_file_size += u64::try_from(buf_len).unwrap_or(u64::MAX);
+            buf_len
+        })
+        // Ok(1)
     }
 
     fn check_and_remove_log_file(&mut self) -> io::Result<()> {

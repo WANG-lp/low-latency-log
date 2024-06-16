@@ -1,4 +1,4 @@
-# Fastest and Low latency logging library for Rust 🪵
+# Fastest and low latency logging library for Rust 🪵
 ### Example
 ```rust
 use fastlog::{info, Level};

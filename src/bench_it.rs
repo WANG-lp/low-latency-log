@@ -1,5 +1,3 @@
-use std::{fs, path::Path};
-
 use fastlog::{info, LogLevel, RollingCondition};
 
 const ITERATIONS: usize = 100000;
@@ -62,9 +60,9 @@ fn bench_mark_func(thread_count: usize) {
 fn main() {
     let rc = RollingCondition::new().daily();
     fastlog::Logger::new(
-        0,
+        131072,
         rc,
-        "./".to_string(),
+        "/dev/shm".to_string(),
         "log.log".to_string(),
         30,
         LogLevel::Info,

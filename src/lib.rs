@@ -16,7 +16,6 @@ pub mod internal;
 pub mod macros;
 
 pub static GLOBAL_LOGGER: OnceCell<Logger> = OnceCell::new();
-pub static GLOBAL_ROLLING_LOGGER: OnceCell<std::sync::Mutex<RollingLogger>> = OnceCell::new();
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
@@ -54,57 +53,39 @@ impl LogLevel {
     }
 }
 
-struct LogMetaData {
-    func: LoggingFunc,
-}
-
-enum LogCommand {
-    Msg(LogMetaData),
-    Flush(crossbeam_channel::Sender<()>),
-}
-
 pub struct LoggingFunc {
-    data: Box<dyn Fn() + Send + 'static>,
+    func: fn(&mut RollingLogger),
+    file: &'static str,
+    line: u32,
 }
 
 impl LoggingFunc {
     #[allow(dead_code)]
-    pub fn new<T>(data: T) -> LoggingFunc
-    where
-        T: Fn() + Send + 'static,
-    {
-        LoggingFunc {
-            data: Box::new(data),
-        }
+    pub fn new(func: fn(&mut RollingLogger), file: &'static str, line: u32) -> LoggingFunc {
+        LoggingFunc { func, file, line }
     }
-    fn invoke(self) {
-        (self.data)();
+    fn invoke(self, rolling_logger: &mut RollingLogger) {
+        (self.func)(rolling_logger);
     }
 }
 
-impl fmt::Debug for LoggingFunc {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+pub struct UString(pub String);
+impl ufmt::uWrite for UString {
+    type Error = core::convert::Infallible;
+
+    fn write_str(&mut self, s: &str) -> Result<(), core::convert::Infallible> {
+        self.0.push_str(s);
         Ok(())
     }
 }
-
-// pub struct UString(pub String);
-// impl ufmt::uWrite for UString {
-//     type Error = core::convert::Infallible;
-
-//     fn write_str(&mut self, s: &str) -> Result<(), core::convert::Infallible> {
-//         self.0.push_str(s);
-//         Ok(())
-//     }
-// }
-// impl ufmt::uDisplay for UString {
-//     fn fmt<W>(&self, f: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
-//     where
-//         W: ufmt::uWrite + ?Sized,
-//     {
-//         <str as ufmt::uDisplay>::fmt(&self.0, f)
-//     }
-// }
+impl ufmt::uDisplay for UString {
+    fn fmt<W>(&self, f: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
+    where
+        W: ufmt::uWrite + ?Sized,
+    {
+        <str as ufmt::uDisplay>::fmt(&self.0, f)
+    }
+}
 
 /// Determines how often a file should be rolled over
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -229,12 +210,16 @@ impl RollingLogger {
 }
 
 pub struct Logger {
+    rc: RollingCondition,
+    folder: String,
+    prefix: String,
+    max_files: usize,
     cpu: Option<usize>,
     buffer_size: usize,
     filter_level: LogLevel,
     sleep_duration_millis: u64,
     thread_name: String,
-    sender: Option<crossbeam_channel::Sender<LogCommand>>,
+    sender: Option<crossbeam_channel::Sender<LoggingFunc>>,
 }
 
 impl Logger {
@@ -246,9 +231,11 @@ impl Logger {
         max_files: usize,
         max_level: LogLevel,
     ) -> Self {
-        let rolling_logger = RollingLogger::new(rc, folder, prefix, max_files);
-        let _ = GLOBAL_ROLLING_LOGGER.set(std::sync::Mutex::new(rolling_logger));
         Logger {
+            rc,
+            folder,
+            prefix,
+            max_files,
             cpu: None,
             buffer_size: max_queue_size,
             filter_level: max_level,
@@ -266,6 +253,13 @@ impl Logger {
 
         self.sender = Some(tx);
 
+        let mut rolling_logger = RollingLogger::new(
+            self.rc.clone(),
+            self.folder.clone(),
+            self.prefix.clone(),
+            self.max_files,
+        );
+
         let _a = thread::Builder::new()
             .name(self.thread_name.to_string())
             .spawn(move || {
@@ -275,14 +269,15 @@ impl Logger {
                 loop {
                     match rx.try_recv() {
                         Ok(cmd) => {
-                            Self::process_log_command(cmd);
+                            Self::process_log_command(cmd, &mut rolling_logger);
                         }
                         Err(e) => match e {
                             crossbeam_channel::TryRecvError::Empty => {
                                 {
-                                    let mut rolling_log =
-                                        GLOBAL_ROLLING_LOGGER.get().unwrap().lock().unwrap();
-                                    let _ = rolling_log.flush();
+                                    //TODO: flush
+                                    // let mut rolling_log =
+                                    //     GLOBAL_ROLLING_LOGGER.get().unwrap().lock().unwrap();
+                                    // let _ = rolling_log.flush();
                                 }
                                 thread::sleep(Duration::from_millis(self.sleep_duration_millis));
                             }
@@ -300,38 +295,16 @@ impl Logger {
         Ok(())
     }
 
-    fn process_log_command(cmd: LogCommand) {
-        match cmd {
-            LogCommand::Msg(msg) => {
-                msg.func.invoke();
-            }
-            LogCommand::Flush(tx) => {
-                {
-                    let mut rolling_log = GLOBAL_ROLLING_LOGGER.get().unwrap().lock().unwrap();
-                    let _ = rolling_log.flush();
-                }
-                let _ = tx.send(());
-            }
-        }
+    fn process_log_command(cmd: LoggingFunc, rolling_logger: &mut RollingLogger) {
+        cmd.invoke(rolling_logger);
     }
 
-    pub fn log(&self, level: LogLevel, func: LoggingFunc) {
-        if level >= self.filter_level {
-            match &self.sender {
-                Some(tx) => {
-                    tx.send(LogCommand::Msg(LogMetaData { func })).unwrap();
-                }
-                None => (),
+    pub fn log(&self, _level: LogLevel, func: LoggingFunc) {
+        match &self.sender {
+            Some(tx) => {
+                tx.send(func).unwrap();
             }
-        }
-    }
-
-    /// Blocking
-    pub fn flush(&self) {
-        if let Some(tx) = &self.sender {
-            let (flush_tx, flush_rx) = crossbeam_channel::bounded(1);
-            tx.send(LogCommand::Flush(flush_tx)).ok();
-            let _ = flush_rx.recv();
+            None => (),
         }
     }
 }
@@ -386,25 +359,21 @@ impl RollingLogger {
         Ok(())
     }
 
-    pub fn write_with_datetime(&mut self, buf: &[u8], now: &DateTime<Local>) -> io::Result<usize> {
-        if self.condition.should_rollover(now, self.current_file_size) {
-            if let Err(e) = self.rollover() {
-                eprintln!("WARNING: Failed to rotate logfile  {}", e);
-            }
-        }
-        self.open_writer_if_needed(now)?;
-        if let Some(writer) = self.writer_buffer.as_mut() {
-            let buf_len = buf.len();
-            writer.write_all(buf).map(|_| {
-                self.current_file_size += u64::try_from(buf_len).unwrap_or(u64::MAX);
-                buf_len
-            })
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "unexpected condition: writer is missing",
-            ))
-        }
+    pub fn write_with_datetime(&mut self, buf: &[u8]) -> io::Result<usize> {
+        // if self.condition.should_rollover(now, self.current_file_size) {
+        //     if let Err(e) = self.rollover() {
+        //         eprintln!("WARNING: Failed to rotate logfile  {}", e);
+        //     }
+        // }
+        // self.open_writer_if_needed(now)?;
+
+        // let writer = self.writer_buffer.as_mut().unwrap();
+        // let buf_len = buf.len();
+        // writer.write_all(buf).map(|_| {
+        //     self.current_file_size += u64::try_from(buf_len).unwrap_or(u64::MAX);
+        //     buf_len
+        // })
+        Ok(1)
     }
 
     fn check_and_remove_log_file(&mut self) -> io::Result<()> {
@@ -440,15 +409,13 @@ impl ufmt::uWrite for RollingLogger {
     type Error = core::convert::Infallible;
 
     fn write_str(&mut self, s: &str) -> Result<(), core::convert::Infallible> {
-        let _ = self.write_with_datetime(s.as_bytes(), &Local::now());
+        let _ = self.write_with_datetime(s.as_bytes());
         Ok(())
     }
 }
 
 impl Drop for Logger {
-    fn drop(&mut self) {
-        self.flush();
-    }
+    fn drop(&mut self) {}
 }
 
 pub fn logger() -> &'static Logger {
@@ -456,13 +423,13 @@ pub fn logger() -> &'static Logger {
 }
 
 pub fn get_timestamp(time_point: &DateTime<Local>) -> String {
-    time_point.format("%H:%M:%S%.9f").to_string()
+    // time_point.format("%H:%M:%S%.9f").to_string()
+    "10:10:10.123456789".into()
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{debug, error, info, warn};
-    use crate::{LogMetaData, Logger};
 
     #[test]
     pub fn test_log() {}

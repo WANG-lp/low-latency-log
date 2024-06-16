@@ -1,28 +1,34 @@
 #[macro_export]
 macro_rules! log {
     ($lvl:expr, $fmt:expr, $($arg:tt)+) => {
-        let time_point = chrono::Local::now();
-        let tid = thread_id::get();
-        let file = std::file!();
-        let line = std::line!();
-        let func = $crate::internal::LoggingFunc::new(move || {
-            let mut rolling_logger = $crate::GLOBAL_ROLLING_LOGGER.get().unwrap().lock().unwrap();
-            ufmt::uwrite!(&mut rolling_logger, "{} [{}] {}:{} ", $crate::get_timestamp(&time_point).as_str(), tid, file, line).unwrap();
-            ufmt::uwriteln!(&mut rolling_logger, $fmt, $($arg)+).unwrap();
-        });
+        // let file = std::file!();
+        // let line = std::line!();
+        let func = $crate::internal::LoggingFunc::new(
+            move |rolling_logger: &mut $crate::RollingLogger| {
+                // let _ = rolling_logger.write_with_datetime(file.as_bytes());
+                // let _ = rolling_logger.write_with_datetime(line);
+
+                // ufmt::uwriteln!(&mut rolling_logger, $fmt, $($arg)+).unwrap();
+            },
+            std::file!(),
+            std::line!(),
+        );
         $crate::internal::log($lvl, func);
     };
 
     ($lvl:expr, $fmt:expr) => {
-        let time_point = chrono::Local::now();
-        let tid = thread_id::get();
-        let file = std::file!();
-        let line = std::line!();
-        let func = $crate::internal::LoggingFunc::new(move || {
-            let mut rolling_logger = $crate::GLOBAL_ROLLING_LOGGER.get().unwrap().lock().unwrap();
-            ufmt::uwrite!(&mut rolling_logger, "{} [{}] {}:{} ", $crate::get_timestamp(&time_point).as_str(), tid, file, line).unwrap();
-            ufmt::uwriteln!(&mut rolling_logger, $fmt).unwrap();
-        });
+        // let time_point = chrono::Local::now();
+        // let tid = thread_id::get();
+        // let file = std::file!();
+        // let line = std::line!();
+        let func = $crate::internal::LoggingFunc::new(
+            move |rolling_logger: &mut $crate::RollingLogger| {
+                // let _ = rolling_logger.write_with_datetime(file.as_bytes());
+                // ufmt::uwriteln!(&mut rolling_logger, $fmt).unwrap();
+            },
+            std::file!(),
+            std::line!(),
+        );
         $crate::internal::log($lvl, func);
     };
 }

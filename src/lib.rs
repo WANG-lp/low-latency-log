@@ -9,6 +9,7 @@ use std::io::{self, BufWriter, Write};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
+use ufmt::uDisplay;
 
 use symlink::{remove_symlink_auto, symlink_auto};
 
@@ -54,22 +55,44 @@ impl LogLevel {
 }
 
 pub struct LoggingFunc {
-    func: fn(&mut RollingLogger, file: &str, line: u32),
+    func: Box<
+        dyn Fn(
+                &mut RollingLogger,
+                &'static str, /* FILE */
+                u32,          /* line */
+                u32,          /* tid */
+                &str,         /* level */
+            ) + Send
+            + 'static,
+    >,
     file: &'static str,
     line: u32,
+    tid: u32,
+    level: LogLevel,
 }
 
 impl LoggingFunc {
     #[allow(dead_code)]
-    pub fn new(
-        func: fn(&mut RollingLogger, file: &str, line: u32),
-        file: &'static str,
-        line: u32,
-    ) -> LoggingFunc {
-        LoggingFunc { func, file, line }
+    pub fn new<T>(func: T, file: &'static str, line: u32, tid: u32, lvl: LogLevel) -> LoggingFunc
+    where
+        T: Fn(&mut RollingLogger, &'static str, u32, u32, &str) + Send + 'static,
+    {
+        LoggingFunc {
+            func: Box::new(func),
+            file,
+            line,
+            tid,
+            level: lvl,
+        }
     }
     fn invoke(self, rolling_logger: &mut RollingLogger) {
-        (self.func)(rolling_logger, &self.file, self.line);
+        (self.func)(
+            rolling_logger,
+            &self.file,
+            self.line,
+            self.tid,
+            self.level.to_str(),
+        );
     }
 }
 
@@ -234,13 +257,14 @@ impl Logger {
         prefix: String,
         max_files: usize,
         max_level: LogLevel,
+        cpu: Option<usize>,
     ) -> Self {
         Logger {
             rc,
             folder,
             prefix,
             max_files,
-            cpu: None,
+            cpu,
             buffer_size: max_queue_size,
             filter_level: max_level,
             sleep_duration_millis: 100,
@@ -303,12 +327,14 @@ impl Logger {
         cmd.invoke(rolling_logger);
     }
 
-    pub fn log(&self, _level: LogLevel, func: LoggingFunc) {
-        match &self.sender {
-            Some(tx) => {
-                tx.send(func).unwrap();
+    pub fn log(&self, level: LogLevel, func: LoggingFunc) {
+        if level >= self.filter_level {
+            match &self.sender {
+                Some(tx) => {
+                    tx.send(func).unwrap();
+                }
+                None => (),
             }
-            None => (),
         }
     }
 }
@@ -363,7 +389,20 @@ impl RollingLogger {
         Ok(())
     }
 
-    pub fn write_with_datetime(&mut self, buf: &[u8]) -> io::Result<usize> {
+    pub fn rollate_with_datetime(&mut self, time_point: &DateTime<Local>) -> io::Result<()> {
+        if self
+            .condition
+            .should_rollover(time_point, self.current_file_size)
+        {
+            if let Err(e) = self.rollover() {
+                eprintln!("WARNING: Failed to rotate logfile  {}", e);
+            }
+        }
+        self.open_writer_if_needed(time_point)?;
+        Ok(())
+    }
+
+    pub fn write_with_uwrite(&mut self, buf: &[u8]) -> io::Result<usize> {
         // if self.condition.should_rollover(now, self.current_file_size) {
         //     if let Err(e) = self.rollover() {
         //         eprintln!("WARNING: Failed to rotate logfile  {}", e);
@@ -413,7 +452,7 @@ impl ufmt::uWrite for RollingLogger {
     type Error = core::convert::Infallible;
 
     fn write_str(&mut self, s: &str) -> Result<(), core::convert::Infallible> {
-        let _ = self.write_with_datetime(s.as_bytes());
+        let _ = self.write_with_uwrite(s.as_bytes());
         Ok(())
     }
 }

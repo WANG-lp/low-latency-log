@@ -16,7 +16,7 @@ once_cell = "1"
 fastrand = "2"
 ufmt = "0.2"
 symlink = "0.1.0"
-thread-id = "4"
+libc = "*"
 
 [profile.release-opt]
 inherits = "release"

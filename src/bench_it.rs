@@ -13,11 +13,16 @@ fn bench_mark_func(thread_count: usize) {
     for _ in 0..thread_count {
         thread_handlers.push(std::thread::spawn(|| {
             let mut latencies_per_thread = Vec::with_capacity(ITERATIONS);
-            for _iter in 0..ITERATIONS {
-                // let start = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
+            for iter in 0..ITERATIONS {
+                let d = iter as f64 + (0.1 * iter as f64);
+
                 let start = std::time::Instant::now();
-                for _ in 0..MESSAGES_PER_ITERATION {
-                    info!("hello {}", 10);
+                for m_id in 0..MESSAGES_PER_ITERATION {
+                    info!(
+                        "Logging iteration: {}, message: {}, double: {}",
+                        iter, m_id, d
+                    );
+                    // info!("hello");
                 }
                 // let end = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
                 latencies_per_thread
@@ -66,6 +71,7 @@ fn main() {
         "log.log".to_string(),
         30,
         LogLevel::Info,
+        Some(1),
     )
     .init()
     .unwrap();

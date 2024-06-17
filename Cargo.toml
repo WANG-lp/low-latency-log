@@ -16,7 +16,8 @@ once_cell = "1"
 fastrand = "2"
 ufmt = "0.2"
 symlink = "0.1.0"
-libc = "*"
+gettid = "0.1"
+clocksource = "0.8"
 
 [profile.release-opt]
 inherits = "release"

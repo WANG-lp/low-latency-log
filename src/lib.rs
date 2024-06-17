@@ -3,13 +3,12 @@ extern crate core;
 use chrono::prelude::*;
 use core_affinity::CoreId;
 use once_cell::sync::OnceCell;
-use std::fmt::{self};
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 use std::thread;
-use std::time::Duration;
-use ufmt::uDisplay;
+use std::time::{Duration, UNIX_EPOCH};
+use ufmt::uwrite;
 
 use symlink::{remove_symlink_auto, symlink_auto};
 
@@ -17,6 +16,56 @@ pub mod internal;
 pub mod macros;
 
 pub static GLOBAL_LOGGER: OnceCell<Logger> = OnceCell::new();
+
+thread_local! {
+    pub static TID: std::cell::Cell<u32> =  std::cell::Cell::new(gettid::gettid() as u32) ;
+}
+
+thread_local! {
+    pub static CACHED_DATE_TIME_STR : std::cell::Cell<PreFormatedDateTime> = std::cell::Cell::new(PreFormatedDateTime::new());
+}
+
+pub struct PreFormatedDateTime {
+    pub cached: std::cell::RefCell<(
+        u64,    /* unix_timestamp_sec */
+        String, /* date_time_str_without_subsec */
+    )>,
+}
+
+impl PreFormatedDateTime {
+    pub fn new() -> Self {
+        let time = std::time::SystemTime::now();
+        let unix_timestamp_sec =
+            time.duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64 / 1_000_000_000;
+        let date_time: DateTime<Local> = time.into();
+        let date_time_str_without_subsec = date_time.format("%H:%M:%S.").to_string();
+        Self {
+            cached: std::cell::RefCell::new((unix_timestamp_sec, date_time_str_without_subsec)),
+        }
+    }
+    pub fn write_date_time_str(
+        &self,
+        system_time: std::time::SystemTime,
+        rolling_logger: &mut RollingLogger,
+    ) {
+        let unix_timestamp_ns = system_time.duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
+        let now_sec: u64 = unix_timestamp_ns / 1_000_000_000;
+        let mut cached = self.cached.borrow_mut();
+        if now_sec != cached.0 {
+            let local_date_time: DateTime<Local> = system_time.into();
+            let _ = rolling_logger.rollate_with_datetime(&local_date_time);
+            cached.0 = now_sec;
+            cached.1 = local_date_time.format("%H:%M:%S.").to_string();
+        }
+        rolling_logger.write_buffer(cached.1.as_bytes());
+        uwrite!(
+            rolling_logger,
+            "{}",
+            unix_timestamp_ns - (now_sec * 1_000_000_000)
+        )
+        .unwrap();
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
@@ -402,7 +451,7 @@ impl RollingLogger {
         Ok(())
     }
 
-    pub fn write_with_uwrite(&mut self, buf: &[u8]) -> io::Result<usize> {
+    pub fn write_buffer(&mut self, buf: &[u8]) {
         // if self.condition.should_rollover(now, self.current_file_size) {
         //     if let Err(e) = self.rollover() {
         //         eprintln!("WARNING: Failed to rotate logfile  {}", e);
@@ -412,11 +461,10 @@ impl RollingLogger {
 
         let writer = self.writer_buffer.as_mut().unwrap();
         let buf_len = buf.len();
-        writer.write_all(buf).map(|_| {
+        let _ = writer.write_all(buf).map(|_| {
             self.current_file_size += u64::try_from(buf_len).unwrap_or(u64::MAX);
             buf_len
-        })
-        // Ok(1)
+        });
     }
 
     fn check_and_remove_log_file(&mut self) -> io::Result<()> {
@@ -452,7 +500,7 @@ impl ufmt::uWrite for RollingLogger {
     type Error = core::convert::Infallible;
 
     fn write_str(&mut self, s: &str) -> Result<(), core::convert::Infallible> {
-        let _ = self.write_with_uwrite(s.as_bytes());
+        let _ = self.write_buffer(s.as_bytes());
         Ok(())
     }
 }
@@ -463,11 +511,6 @@ impl Drop for Logger {
 
 pub fn logger() -> &'static Logger {
     GLOBAL_LOGGER.get().unwrap()
-}
-
-pub fn get_timestamp(time_point: &DateTime<Local>) -> String {
-    // time_point.format("%H:%M:%S%.9f").to_string()
-    "10:10:10.123456789".into()
 }
 
 #[cfg(test)]

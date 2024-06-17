@@ -18,11 +18,11 @@ fn bench_mark_func(thread_count: usize) {
 
                 let start = std::time::Instant::now();
                 for m_id in 0..MESSAGES_PER_ITERATION {
-                    info!(
-                        "Logging iteration: {}, message: {}, double: {}",
-                        iter, m_id, d
-                    );
-                    // info!("hello");
+                    // info!(
+                    //     "Logging iteration: {}, message: {}, double: {}",
+                    //     iter, m_id, d
+                    // );
+                    info!("hello");
                 }
                 // let end = unsafe { core::arch::x86_64::__rdtscp(&mut aux) };
                 latencies_per_thread

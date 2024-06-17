@@ -1,10 +1,12 @@
 #[macro_export]
 macro_rules! log {
     ($lvl:expr, $fmt:expr, $($arg:tt)+) => {
-        // let tid = unsafe{libc::gettid() as u32};
+        let tid = $crate::TID.get();
+        let timestamp = std::time::SystemTime::now();
         let func = $crate::internal::LoggingFunc::new(
             move |rolling_logger: &mut $crate::RollingLogger, file: &str, line: u32, tid:u32, lvl:&str| {
-                let date_time = chrono::Local::now();
+                let unix_timestamp_ns = timestamp.duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+                let (time_str, nanos) = CACHED_TIME_STR.get().get_date_time_str();
                 let _ = rolling_logger.rollate_with_datetime(&date_time);
                 let time_str = date_time.format("%H:%M:%S%.9f").to_string();
                 let ss = format!($fmt, $($arg)+);
@@ -12,25 +14,28 @@ macro_rules! log {
             },
             std::file!(),
             std::line!(),
-            111 as u32,
+            tid,
             $lvl
         );
         $crate::internal::log($lvl, func);
     };
 
     ($lvl:expr, $fmt:expr) => {
-        // let tid = unsafe{libc::gettid() as u32};
+        let tid = $crate::TID.get();
+        let system_time = clocksource::coarse::UnixInstant::now();
 
         let func = $crate::internal::LoggingFunc::new(
             move |rolling_logger: &mut $crate::RollingLogger, file: &str, line: u32, tid:u32, lvl: &str| {
-                let date_time = chrono::Local::now();
-                let _ = rolling_logger.rollate_with_datetime(&date_time);
-                let time_str = date_time.format("%H:%M:%S%.9f").to_string();
-                ufmt::uwriteln!(rolling_logger, "{} {} {}:{} {} {}", time_str.as_str(), tid, file, line, lvl, $fmt).unwrap();
+
+            //    $crate::CACHED_DATE_TIME_STR.with(|cached_date_time_str| {
+            //         let cached = cached_date_time_str.as_ptr();
+            //         unsafe{(*cached).write_date_time_str(system_time, rolling_logger)}
+            //     });
+                ufmt::uwriteln!(rolling_logger, " {} {}:{} {} {}", tid, file, line, lvl, $fmt).unwrap();
             },
             std::file!(),
             std::line!(),
-            111 as u32,
+            tid,
             $lvl
         );
         $crate::internal::log($lvl, func);

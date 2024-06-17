@@ -23,6 +23,10 @@ clocksource = "0.8"
 inherits = "release"
 opt-level = "z"
 
-[[bin]]
+
+[dev-dependencies]
+quanta = "0.12"
+
+[[example]]
 name = "bench_it"
 path = "src/bench_it.rs"

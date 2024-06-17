@@ -18,11 +18,11 @@ fn bench_mark_func(thread_count: usize) {
 
                 let start = quanta::Instant::now();
                 for m_id in 0..MESSAGES_PER_ITERATION {
-                    info!(
-                        "Logging iteration: {}, message: {}, double: {}",
-                        iter, m_id, d
-                    );
-                    // info!("hello");
+                    // info!(
+                    //     "Logging iteration: {}, message: {}, double: {}",
+                    //     iter, m_id, d
+                    // );
+                    info!("hello");
                 }
                 latencies_per_thread
                     .push((start.elapsed().as_nanos() as u64) / MESSAGES_PER_ITERATION as u64);

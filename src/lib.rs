@@ -11,17 +11,20 @@ use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
-use ufmt::{uwrite, uwriteln};
+// use ufmt::{uwrite, uwriteln};
 
 use symlink::{remove_symlink_auto, symlink_auto};
 
 pub mod internal;
 pub mod macros;
 
+mod fmt_utils;
+
 pub static GLOBAL_LOGGER: OnceCell<Logger> = OnceCell::new();
 
 thread_local! {
     pub static TID: std::cell::Cell<&'static str> = std::cell::Cell::new(Box::leak(format!("{}", gettid::gettid()).into_boxed_str()));
+    // pub static TID: std::cell::Cell<u32> = std::cell::Cell::new(gettid::gettid() as u32);
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -98,15 +101,28 @@ impl LoggingFunc {
         rolling_logger.write_date_time_str(self.system_time);
         let output = (self.func)();
         let output_str = output.as_ref();
-        let _ = uwriteln!(
-            rolling_logger,
-            "[{}] {}:{} {} {}",
-            self.tid,
-            self.file,
-            self.line,
-            self.level.to_str(),
-            output_str
-        );
+        rolling_logger.write_char('[').unwrap();
+        rolling_logger.write_str(self.tid).unwrap();
+        rolling_logger.write_char(']').unwrap();
+        rolling_logger.write_char(' ').unwrap();
+        rolling_logger.write_str(self.file).unwrap();
+        rolling_logger.write_char(':').unwrap();
+        rolling_logger.write_u32(self.line).unwrap();
+        rolling_logger.write_char(' ').unwrap();
+        rolling_logger.write_str(&self.level.to_str()).unwrap();
+        rolling_logger.write_char(' ').unwrap();
+        rolling_logger.write_str(output_str).unwrap();
+        rolling_logger.write_char('\n').unwrap();
+
+        // let _ = uwriteln!(
+        //     rolling_logger,
+        //     "[{}] {}:{} {} {}",
+        //     self.tid,
+        //     self.file,
+        //     self.line,
+        //     self.level.to_str(),
+        //     output_str
+        // );
     }
 }
 
@@ -256,7 +272,7 @@ pub struct Logger {
     cpu: Option<usize>,
     buffer_size: usize,
     filter_level: LogLevel,
-    sleep_duration_millis: u64,
+    sleep_duration_nanos: u64,
     thread_name: String,
     sender: Option<crossbeam_channel::Sender<LoggingFunc>>,
     status: Arc<AtomicU8>, /* 0->uninit, 1->inited, 2->require to stop, 3->stopped */
@@ -295,7 +311,7 @@ impl Logger {
             cpu: None,
             buffer_size: max_queue_size,
             filter_level: max_level,
-            sleep_duration_millis: 1,
+            sleep_duration_nanos: 500,
             thread_name: String::from("fastlog"),
             sender: None,
             status: Arc::new(AtomicU8::new(0)),
@@ -344,9 +360,7 @@ impl Logger {
                             match e {
                                 crossbeam_channel::TryRecvError::Empty => {
                                     let _ = rolling_logger.flush();
-                                    thread::sleep(Duration::from_millis(
-                                        self.sleep_duration_millis,
-                                    ));
+                                    thread::sleep(Duration::from_nanos(self.sleep_duration_nanos));
                                 }
                                 crossbeam_channel::TryRecvError::Disconnected => {
                                     let _ = rolling_logger.flush();
@@ -457,11 +471,12 @@ impl RollingLogger {
         let data_str = {
             let cached = &mut self.cached_date_time;
             if now_sec != cached.0 {
-                let local_date_time =
-                    DateTime::from_timestamp_nanos(unix_timestamp_ns as i64).with_timezone(&Local);
+                // let local_date_time =
+                //     DateTime::from_timestamp_nanos(unix_timestamp_ns as i64).with_timezone(&Local);
                 // self.rollate_with_datetime(&local_date_time);
                 cached.0 = now_sec;
-                cached.1 = local_date_time.format("%H:%M:%S").to_string();
+                // cached.1 = local_date_time.format("%H:%M:%S").to_string();
+                cached.1 = "11:15:50".into();
             }
             cached.1.as_str()
         };
@@ -469,7 +484,12 @@ impl RollingLogger {
         let _ = writer.write_all(data_str.as_bytes()).map(|_| {
             self.current_file_size += u64::try_from(data_str.len()).unwrap_or(u64::MAX);
         });
-        uwrite!(self, ".{} ", unix_timestamp_ns - (now_sec * 1_000_000_000)).unwrap();
+        self.write_char('.').unwrap();
+        let nanos = (unix_timestamp_ns - (now_sec * 1_000_000_000)) as u32;
+        self.write_u32(nanos).unwrap();
+        self.write_char(' ').unwrap();
+
+        // uwrite!(self, ".{} ", unix_timestamp_ns - (now_sec * 1_000_000_000)).unwrap();
     }
 
     fn check_and_remove_log_file(&mut self) -> io::Result<()> {
@@ -507,6 +527,23 @@ impl ufmt::uWrite for RollingLogger {
     fn write_str(&mut self, s: &str) -> Result<(), std::io::Error> {
         self.write_to_buffer(s.as_bytes())?;
         Ok(())
+    }
+}
+
+#[allow(dead_code)]
+impl RollingLogger {
+    fn write_char(&mut self, s: char) -> Result<usize, std::io::Error> {
+        self.write_to_buffer(&[s as u8])
+    }
+    fn write_str(&mut self, s: &str) -> Result<usize, std::io::Error> {
+        self.write_to_buffer(s.as_bytes())
+    }
+    fn write_bytes(&mut self, s: &[u8]) -> Result<usize, std::io::Error> {
+        self.write_to_buffer(s)
+    }
+    fn write_u32(&mut self, n: u32) -> Result<(), std::io::Error> {
+        let writer_buffer = self.writer_buffer.as_mut().unwrap();
+        fmt_utils::write_u32(n, writer_buffer)
     }
 }
 

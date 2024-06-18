@@ -1,9 +1,14 @@
-use fastlog::{info, LogLevel, RollingCondition};
+use fastlog::{info, RollingCondition};
 
 const ITERATIONS: usize = 100000;
 const MESSAGES_PER_ITERATION: usize = 20;
 const MIN_WAIT_DURATION_NS: usize = 200_000;
 const MAX_WAIT_DURATION_NS: usize = 220_000;
+
+use tcmalloc::TCMalloc;
+
+#[global_allocator]
+static GLOBAL: TCMalloc = TCMalloc;
 
 fn bench_mark_func(thread_count: usize) {
     let mut latencies = Vec::with_capacity(thread_count * ITERATIONS);
@@ -18,11 +23,11 @@ fn bench_mark_func(thread_count: usize) {
 
                 let start = quanta::Instant::now();
                 for m_id in 0..MESSAGES_PER_ITERATION {
-                    // info!(
-                    //     "Logging iteration: {}, message: {}, double: {}",
-                    //     iter, m_id, d
-                    // );
-                    info!("hello");
+                    info!(
+                        "Logging iteration: {}, message: {}, double: {}",
+                        iter, m_id, d
+                    );
+                    // info!("hello");
                 }
                 latencies_per_thread
                     .push((start.elapsed().as_nanos() as u64) / MESSAGES_PER_ITERATION as u64);
@@ -61,17 +66,11 @@ fn bench_mark_func(thread_count: usize) {
 
 fn main() {
     let rc = RollingCondition::new().daily();
-    fastlog::Logger::new(
-        131072,
-        rc,
-        "/dev/shm".to_string(),
-        "log.log".to_string(),
-        30,
-        LogLevel::Info,
-    )
-    .cpu(1)
-    .init()
-    .unwrap();
+    fastlog::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
+        .cpu(1)
+        .background_sleep_time_step_nanos(500)
+        .init()
+        .unwrap();
 
     bench_mark_func(1);
     bench_mark_func(4);

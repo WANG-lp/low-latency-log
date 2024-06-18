@@ -17,7 +17,7 @@ fastrand = "2"
 ufmt = "0.2"
 symlink = "0.1.0"
 gettid = "0.1"
-clocksource = "0.8"
+cfg-if = "1.0"
 
 [profile.release-opt]
 inherits = "release"
@@ -26,7 +26,18 @@ opt-level = "z"
 
 [dev-dependencies]
 quanta = "0.12"
+tcmalloc = "0.3.0"
 
 [[example]]
 name = "bench_it"
 path = "src/bench_it.rs"
+
+
+[features]
+default = ["level-trace"]
+level-off = []
+level-error = []
+level-warn = []
+level-info = []
+level-debug = []
+level-trace = []

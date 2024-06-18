@@ -22,6 +22,7 @@ mod consts;
 mod fmt_utils;
 
 pub static GLOBAL_LOGGER: OnceCell<Logger> = OnceCell::new();
+pub static mut GLOBAL_FORMAT_STR_CACHE: OnceCell<String> = OnceCell::new();
 
 thread_local! {
     pub static TID: std::cell::Cell<&'static str> = std::cell::Cell::new(Box::leak(format!("{}", gettid::gettid()).into_boxed_str()));
@@ -309,7 +310,7 @@ impl Logger {
             .load(std::sync::atomic::Ordering::Relaxed)
             != 3
         {
-            thread::sleep(Duration::from_millis(1));
+            thread::sleep(Duration::from_micros(100));
         }
     }
     pub fn new(rc: RollingCondition, folder: String, prefix: String) -> Self {
@@ -408,7 +409,7 @@ impl Logger {
         cmd.invoke(rolling_logger);
     }
 
-    pub fn log(&self, _level: LogLevel, func: LoggingFunc) {
+    pub fn log(&self, func: LoggingFunc) {
         match &self.sender {
             Some(tx) => {
                 tx.send(func).unwrap();
@@ -492,7 +493,7 @@ impl RollingLogger {
 
     pub fn write_date_time_str(&mut self, unix_timestamp_ns: u64) {
         let now_sec: u64 = unix_timestamp_ns / 1_000_000_000;
-        let data_str = {
+        let data_str_array = {
             let cached_timestamp_sec = self.cached_date_time.0;
             if now_sec != cached_timestamp_sec {
                 // if cached timestamp is not the same as now
@@ -506,11 +507,11 @@ impl RollingLogger {
                     cached.1 = local_date_time.format("%H:%M:%S").to_string();
                 }
             }
-            self.cached_date_time.1.as_str()
+            self.cached_date_time.1.as_bytes()
         };
         let writer = self.writer_buffer.as_mut().unwrap();
-        let _ = writer.write_all(data_str.as_bytes()).map(|_| {
-            self.current_file_size += u64::try_from(data_str.len()).unwrap_or(u64::MAX);
+        let _ = writer.write_all(data_str_array).map(|_| {
+            self.current_file_size += u64::try_from(data_str_array.len()).unwrap_or(u64::MAX);
         });
         // self.write_char('.').unwrap();
         // let nanos = (unix_timestamp_ns - (now_sec * 1_000_000_000)) as u32;

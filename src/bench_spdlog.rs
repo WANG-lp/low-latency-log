@@ -1,8 +1,8 @@
-use bench::fastlog_bench::bench_fastlog;
+use bench::spdlog_bench::bench_spdlog;
 use tcmalloc::TCMalloc;
 
 #[global_allocator]
 static GLOBAL: TCMalloc = TCMalloc;
 fn main() {
-    bench_fastlog();
+    bench_spdlog();
 }

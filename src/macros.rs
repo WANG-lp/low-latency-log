@@ -3,12 +3,15 @@ pub const LEVEL_FILTER: crate::LogLevel = LEVEL_FILTER_INNER;
 #[macro_export]
 macro_rules! log {
     ($lvl:expr, $fmt:expr, $($arg:tt)+) => {
+        use std::fmt::Write;
         if $lvl >= fastlog::macros::LEVEL_FILTER{
             let tid = $crate::TID.get();
             let system_time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
             let func = $crate::internal::LoggingFunc::new(
                 move || {
-                format!($fmt, $($arg)+).into()
+                    let mut s = String::with_capacity(255);
+                    write!(&mut s, $fmt, $($arg)+).unwrap();
+                    s.into()
                 },
                 std::file!(),
                 std::line!(),
@@ -16,7 +19,7 @@ macro_rules! log {
                 $lvl,
                 system_time,
             );
-            $crate::internal::log($lvl, func);
+            $crate::internal::log(func);
         }
     };
 
@@ -34,7 +37,7 @@ macro_rules! log {
                 $lvl,
                 system_time
             );
-            $crate::internal::log($lvl, func);
+            $crate::internal::log(func);
         }
     };
 }

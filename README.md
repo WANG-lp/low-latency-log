@@ -1,14 +1,17 @@
 # Fast and Low Latency Logging Library for Rust 🪵
 
 ## Introduction
-Fastlog is a high-performance and low-latency Rust logging library. It leverages high-performance Rust foundational components to achieve a clean and efficient codebase.
+Fastlog is a high-performance and low-latency Rust logging library.
 
 ## Features
-* **Low Latency**: Fastlog is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted time strings.
-* **Async Logging**: Fastlog assigns all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the logging thread is not blocked.
+* **Low Latency**: Fastlog is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
+* **Async Logging**: Fastlog offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
 * **Compile-time Selection of Maximum Log Level**: Fastlog allows the maximum log level to be selected at compile-time, avoiding runtime checks.
 
-## Example
+## Benchmark
+please refer [Benchmark](./BENCHMARK.md)
+
+## Usage Example
 ```rust
 use fastlog::{info, Level};
 use std::fs;
@@ -37,6 +40,8 @@ The following optimizations are in progress:
 
 * [`logflume`](https://github.com/SBentley/logflume)
 * [`quill`](https://github.com/odygrd/quill)
+* [`spdlog-rs`](https://github.com/SpriteOvO/spdlog-rs)
+* [`rolling-file-rs`](https://github.com/Axcient/rolling-file-rs)
 
 ## License
 This project is under the Apache license.

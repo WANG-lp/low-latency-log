@@ -71,9 +71,9 @@ impl From<log::Level> for LogLevel {
         }
     }
 }
-impl Into<log::LevelFilter> for LogLevel {
-    fn into(self) -> log::LevelFilter {
-        match self {
+impl From<LogLevel> for log::LevelFilter {
+    fn from(value: LogLevel) -> Self {
+        match value {
             LogLevel::Trace => log::LevelFilter::Trace,
             LogLevel::Debug => log::LevelFilter::Debug,
             LogLevel::Info => log::LevelFilter::Info,
@@ -187,7 +187,7 @@ impl RollingFrequency {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct RollingCondition {
     last_write_opt: Option<DateTime<Local>>,
     frequency_opt: Option<RollingFrequency>,
@@ -324,7 +324,7 @@ impl Logger {
     pub fn finish() {
         let mut finish_flag = GLOBAL_LOGGER_STOP_FLAG.lock().unwrap();
         // we can only finish logger once
-        if *finish_flag == false {
+        if !(*finish_flag) {
             *finish_flag = true;
             GLOBAL_LOGGER
                 .get()
@@ -407,7 +407,7 @@ impl Logger {
             self.time_format_str.as_ref().unwrap().clone()
         };
         let mut rolling_logger = RollingLogger::new(
-            self.rc.clone(),
+            self.rc,
             time_fmt_str,
             self.folder.clone(),
             self.prefix.clone(),

@@ -4,7 +4,7 @@
 low-latency-log is a high-performance and low-latency Rust logging library.
 
 ## Features
-* **Low Latency**: low-latency-log is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
+* **Very Low Latency**: low-latency-log is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
 * **Async Logging**: low-latency-log offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
 
 ## Benchmark

@@ -22,7 +22,7 @@ impl log::Log for LogProxy {
                 None => Cow::Owned(record.args().to_string()),
             };
             let func = crate::internal::LoggingFunc::new(
-                move || args.to_owned(),
+                move || args.clone(),
                 std::file!(),
                 std::line!(),
                 tid,

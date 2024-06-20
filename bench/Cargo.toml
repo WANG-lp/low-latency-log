@@ -15,8 +15,10 @@ quanta = "0.12"
 fastrand = "2"
 once_cell = "1"
 log = { version = "0.4", features = ["std"] }
-fast_log="1.6.16"
+fast_log = "1.6.16"
 tcmalloc = "0.3.0"
+ftlog = "0.2"
+time = "0.3"
 
 [[bin]]
 name = "bench_it"
@@ -26,6 +28,9 @@ path = "src/bench_it.rs"
 name = "bench_spdlog"
 path = "src/bench_spdlog.rs"
 
+[[bin]]
+name = "bench_ftlog"
+path = "src/bench_ftlog.rs"
 
 [[bin]]
 name = "bench_fast_log"

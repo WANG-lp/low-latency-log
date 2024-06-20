@@ -23,8 +23,8 @@ impl log::Log for LogProxy {
             };
             let func = crate::internal::LoggingFunc::new(
                 move || args.clone(),
-                std::file!(),
-                std::line!(),
+                record.file_static().unwrap_or(""),
+                record.line().unwrap_or(0) as u32,
                 tid,
                 lvl,
                 system_time,

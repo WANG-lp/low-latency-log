@@ -10,19 +10,23 @@ use std::path::Path;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::Duration;
 use ufmt::{uwrite, uwriteln};
 
 use symlink::{remove_symlink_auto, symlink_auto};
 
 pub mod internal;
+pub mod log_proxy;
 pub mod macros;
 
 mod consts;
 mod fmt_utils;
 
 pub static GLOBAL_LOGGER: OnceCell<Logger> = OnceCell::new();
-pub static mut GLOBAL_FORMAT_STR_CACHE: OnceCell<String> = OnceCell::new();
+pub static GLOBAL_LOGGER_STOP_FLAG: once_cell::sync::Lazy<std::sync::Mutex<bool>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(false));
+
+const TIME_FORMAT_STR: &str = "%H:%M:%S";
 
 thread_local! {
     pub static TID: std::cell::Cell<&'static str> = std::cell::Cell::new(Box::leak(format!("{}", gettid::gettid()).into_boxed_str()));
@@ -54,6 +58,30 @@ pub enum LogLevel {
     Warn = 3,
     Error = 4,
     Off = 99,
+}
+
+impl From<log::Level> for LogLevel {
+    fn from(value: log::Level) -> Self {
+        match value {
+            log::Level::Trace => LogLevel::Trace,
+            log::Level::Debug => LogLevel::Debug,
+            log::Level::Info => LogLevel::Info,
+            log::Level::Warn => LogLevel::Warn,
+            log::Level::Error => LogLevel::Error,
+        }
+    }
+}
+impl Into<log::LevelFilter> for LogLevel {
+    fn into(self) -> log::LevelFilter {
+        match self {
+            LogLevel::Trace => log::LevelFilter::Trace,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Off => log::LevelFilter::Off,
+        }
+    }
 }
 impl From<&str> for LogLevel {
     fn from(value: &str) -> Self {
@@ -120,18 +148,6 @@ impl LoggingFunc {
         rolling_logger.write_date_time_str(self.system_time);
         let output = (self.func)();
         let output_str = output.as_ref();
-        // rolling_logger.write_char('[').unwrap();
-        // rolling_logger.write_str(self.tid).unwrap();
-        // rolling_logger.write_char(']').unwrap();
-        // rolling_logger.write_char(' ').unwrap();
-        // rolling_logger.write_str(self.file).unwrap();
-        // rolling_logger.write_char(':').unwrap();
-        // rolling_logger.write_u32(self.line).unwrap();
-        // rolling_logger.write_char(' ').unwrap();
-        // rolling_logger.write_str(&self.level.to_str()).unwrap();
-        // rolling_logger.write_char(' ').unwrap();
-        // rolling_logger.write_str(output_str).unwrap();
-        // rolling_logger.write_char('\n').unwrap();
 
         let _ = uwriteln!(
             rolling_logger,
@@ -245,6 +261,7 @@ pub struct RollingLogger {
     max_files: usize,
     writer_buffer: Option<BufWriter<File>>,
     current_file_size: u64,
+    time_fmt_str: String,
     cached_date_time: (
         u64,    /* unix_timestamp_sec */
         String, /* date_time_str_without_subsec */
@@ -252,34 +269,39 @@ pub struct RollingLogger {
 }
 
 impl RollingLogger {
-    pub fn new(rc: RollingCondition, folder: String, prefix: String, max_files: usize) -> Self {
+    pub fn new(
+        rc: RollingCondition,
+        time_fmt_str: String,
+        folder: String,
+        prefix: String,
+        max_files: usize,
+    ) -> Self {
         if std::fs::metadata(&folder).is_err() {
             std::fs::create_dir_all(&folder).expect("Failed to create log folder");
         }
-
-        let cached_date_time = {
-            let time = std::time::SystemTime::now();
-            let unix_timestamp_sec =
-                time.duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64 / 1_000_000_000;
-            let date_time: DateTime<Local> = time.into();
-            let date_time_str_without_subsec = date_time.format("%H:%M:%S").to_string();
-
-            (unix_timestamp_sec, date_time_str_without_subsec)
-        };
 
         let mut rolling_logger = RollingLogger {
             condition: rc,
             prefix,
             folder,
             max_files,
+            time_fmt_str,
             writer_buffer: None,
             current_file_size: 0,
-            cached_date_time,
+            cached_date_time: (0, "".into()),
         };
         rolling_logger
             .open_writer_if_needed(&Local::now())
             .expect("Failed to open log file");
         rolling_logger
+    }
+}
+
+pub struct LoggerGuard;
+
+impl Drop for LoggerGuard {
+    fn drop(&mut self) {
+        crate::Logger::finish();
     }
 }
 
@@ -292,26 +314,40 @@ pub struct Logger {
     queue_size: usize,
     sleep_duration_nanos: u64,
     thread_name: String,
+    set_std_log: bool,
+    time_format_str: Option<String>,
     sender: Option<crossbeam_channel::Sender<LoggingFunc>>,
-    status: Arc<AtomicU8>, /* 0->uninit, 1->inited, 2->require to stop, 3->stopped */
+    status: Arc<AtomicU8>, /* 0->uninit, 1->inited, 2->require to flush, 3->require to stop, 4->stopped */
 }
 
 impl Logger {
     pub fn finish() {
+        let mut finish_flag = GLOBAL_LOGGER_STOP_FLAG.lock().unwrap();
+        // we can only finish logger once
+        if *finish_flag == false {
+            *finish_flag = true;
+            GLOBAL_LOGGER
+                .get()
+                .unwrap()
+                .status
+                .store(3, std::sync::atomic::Ordering::Relaxed);
+            while GLOBAL_LOGGER
+                .get()
+                .unwrap()
+                .status
+                .load(std::sync::atomic::Ordering::Relaxed)
+                != 4
+            {
+                thread::sleep(Duration::from_micros(100));
+            }
+        }
+    }
+    pub fn flush() {
         GLOBAL_LOGGER
             .get()
             .unwrap()
             .status
             .store(2, std::sync::atomic::Ordering::Relaxed);
-        while GLOBAL_LOGGER
-            .get()
-            .unwrap()
-            .status
-            .load(std::sync::atomic::Ordering::Relaxed)
-            != 3
-        {
-            thread::sleep(Duration::from_micros(100));
-        }
     }
     pub fn new(rc: RollingCondition, folder: String, prefix: String) -> Self {
         Logger {
@@ -320,6 +356,8 @@ impl Logger {
             prefix,
             max_files: consts::MAX_KEEP_FILE,
             cpu: None,
+            set_std_log: false,
+            time_format_str: None,
             queue_size: consts::MAX_QUEUE_SIZE,
             sleep_duration_nanos: consts::BACKGROUND_SLEEP_TIME_STEP_NANOS,
             thread_name: String::from("fastlog"),
@@ -342,13 +380,20 @@ impl Logger {
         self.queue_size = queue_size;
         self
     }
-
+    pub fn std_log(mut self, set: bool) -> Self {
+        self.set_std_log = set;
+        self
+    }
+    pub fn time_format_str(mut self, fmt: &str) -> Self {
+        self.time_format_str = Some(fmt.into());
+        self
+    }
     pub fn background_sleep_time_step_nanos(mut self, nanos: u64) -> Self {
         self.sleep_duration_nanos = nanos;
         self
     }
 
-    pub fn init(mut self) -> io::Result<()> {
+    pub fn init(mut self) -> io::Result<LoggerGuard> {
         let (tx, rx) = match self.queue_size {
             0 => crossbeam_channel::unbounded(),
             _ => crossbeam_channel::bounded(self.queue_size),
@@ -356,8 +401,14 @@ impl Logger {
 
         self.sender = Some(tx);
 
+        let time_fmt_str = if self.time_format_str.is_none() {
+            TIME_FORMAT_STR.into()
+        } else {
+            self.time_format_str.as_ref().unwrap().clone()
+        };
         let mut rolling_logger = RollingLogger::new(
             self.rc.clone(),
+            time_fmt_str,
             self.folder.clone(),
             self.prefix.clone(),
             self.max_files,
@@ -378,10 +429,14 @@ impl Logger {
                             Self::process_log_command(cmd, &mut rolling_logger);
                         }
                         Err(e) => {
-                            // check if require to stop
-                            if status.load(std::sync::atomic::Ordering::Relaxed) == 2 {
+                            let st = status.load(std::sync::atomic::Ordering::Relaxed);
+                            if st == 2 {
+                                // check if require to flush
                                 let _ = rolling_logger.flush();
-                                // break the loop to stop the logger
+                                status.store(1, std::sync::atomic::Ordering::Relaxed);
+                            } else if st == 3 {
+                                // check if require to stop
+                                let _ = rolling_logger.flush();
                                 break;
                             }
                             match e {
@@ -397,12 +452,17 @@ impl Logger {
                         }
                     }
                 }
-                status.store(3, std::sync::atomic::Ordering::Relaxed); // set logger stopped
+                status.store(4, std::sync::atomic::Ordering::Relaxed); // set logger stopped
             });
 
+        let set_std_logger = self.set_std_log;
         let _ = GLOBAL_LOGGER.set(self);
-
-        Ok(())
+        if set_std_logger {
+            let fast_logger = log_proxy::LogProxy::default();
+            log::set_max_level(LogLevel::Info.into());
+            log::set_boxed_logger(Box::new(fast_logger)).unwrap();
+        }
+        Ok(LoggerGuard)
     }
 
     fn process_log_command(cmd: LoggingFunc, rolling_logger: &mut RollingLogger) {
@@ -504,7 +564,9 @@ impl RollingLogger {
                     // update cached date time
                     let cached = &mut self.cached_date_time;
                     cached.0 = now_sec;
-                    cached.1 = local_date_time.format("%H:%M:%S").to_string();
+                    cached.1 = local_date_time
+                        .format(self.time_fmt_str.as_str())
+                        .to_string();
                 }
             }
             self.cached_date_time.1.as_bytes()
@@ -513,10 +575,6 @@ impl RollingLogger {
         let _ = writer.write_all(data_str_array).map(|_| {
             self.current_file_size += u64::try_from(data_str_array.len()).unwrap_or(u64::MAX);
         });
-        // self.write_char('.').unwrap();
-        // let nanos = (unix_timestamp_ns - (now_sec * 1_000_000_000)) as u32;
-        // self.write_u32(nanos).unwrap();
-        // self.write_char(' ').unwrap();
 
         uwrite!(self, ".{} ", unix_timestamp_ns - (now_sec * 1_000_000_000)).unwrap();
     }

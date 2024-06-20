@@ -6,7 +6,6 @@ Fastlog is a high-performance and low-latency Rust logging library.
 ## Features
 * **Low Latency**: Fastlog is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
 * **Async Logging**: Fastlog offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
-* **Compile-time Selection of Maximum Log Level**: Fastlog allows the maximum log level to be selected at compile-time, avoiding runtime checks.
 
 ## Benchmark
 please refer [Benchmark](./BENCHMARK.md)
@@ -20,7 +19,8 @@ use std::fs;
 
 fn main() {
     let rc = RollingCondition::new().daily();
-    fastlog::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
+    // remember to keep the following guard, otherwise, global logger stops immediately when guard auto drops
+    let _guard = fastlog::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
         .cpu(1)
         .init()
         .unwrap();
@@ -28,15 +28,17 @@ fn main() {
     for i in 1..1_000_001 {
         info!("number {}", i);
     }
-    fastlog::Logger::finish();
+
+    // _guard auto droped and log flushed
 }
 ```
 
 ## TODOs
 The following optimizations are in progress:
-- Optimize `format!`, as `format!` in Rust has performance limitations.
+- Optimize std `format!`.
 - Improve `ufmt` to provide more types of formatting support (e.g., floating-point types).
 - Support custom format types, as currently fastlog outputs fixed time and log formats.
+- Optimize performance when use the `log` crate
 
 ## Fastlog is Heavily Inspired by the Following Projects
 

@@ -2,7 +2,7 @@ workspace = { members = ["bench"] }
 
 [package]
 name = "low_latency_log"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Fast and Low Latency Logging Library for Rust"
 license = "Apache-2.0"

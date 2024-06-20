@@ -8,7 +8,7 @@
 * **Async Logging**: `low-latency-log` offloads all heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
 
 ## Benchmark
-`low-latency-log` offers comparable p999 latency to [`quill`](https://github.com/odygrd/quill) and leads in throughput among `quil`, `spdlog-rs`, `ftlog`, and `fast_log`.
+`low-latency-log` offers comparable p999 latency to [`quill`](https://github.com/odygrd/quill) and leads in throughput among `quill`, `spdlog-rs`, `ftlog`, and `fast_log`.
 
 For more details, please refer to the [Benchmark](./BENCHMARK.md).
 

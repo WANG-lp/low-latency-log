@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-fastlog = { path = "../", features = ["level-info"] }
+low_latency_log = { path = "../", features = ["level-info"] }
 spdlog-rs = { version = "0.3", features = [
     "level-info",
     "multi-thread",
@@ -15,7 +15,7 @@ quanta = "0.12"
 fastrand = "2"
 once_cell = "1"
 log = { version = "0.4", features = ["std"] }
-
+fast_log="1.6.16"
 tcmalloc = "0.3.0"
 
 [[bin]]
@@ -25,3 +25,8 @@ path = "src/bench_it.rs"
 [[bin]]
 name = "bench_spdlog"
 path = "src/bench_spdlog.rs"
+
+
+[[bin]]
+name = "bench_fast_log"
+path = "src/bench_fast_log.rs"

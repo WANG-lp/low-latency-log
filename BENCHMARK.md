@@ -1,10 +1,10 @@
 # Benchmark
 
 ## MacBook Pro 16' M3Max 48GB - MacOs Sonoma 14.5 - Rust 1.78.0
-- fastlog:
+- low_latency_log:
     ```bash
     $ ./target/release/examples/bench_it 
-    ======= Fastlog Benchmark =======
+    ======= LLL Benchmark =======
     Thread count 1 - Total Messages 2000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
     |  56  |  62  |  75  |  93  | 241  |  400   |177806 |
@@ -35,10 +35,10 @@
 
 ## Tencent Cloud - Intel(R) Xeon(R) Gold 6231C - 4C16G - Rockylinux 9.3 - Linux 5.14.0 - Rust 1.79.0
 
-- fastlog:
+- low_latency_log:
     ```bash
     $ ./target/release/examples/bench_it 
-    ======= Fastlog Benchmark =======
+    ======= LLL Benchmark =======
     Thread count 1 - Total Messages 2000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
     | 112  | 123  | 135  | 145  | 188  |  615   | 2223  |

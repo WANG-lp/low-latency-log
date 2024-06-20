@@ -1,12 +1,12 @@
 workspace = { members = ["bench"] }
 
 [package]
-name = "fastlog"
+name = "low_latency_log"
 version = "0.1.0"
 edition = "2021"
-description = "Fastest logging library 🪵."
+description = "Low latency logging library."
 license = "Apache"
-repository = "https://github.com/WANG-lp/fastlog"
+repository = "https://github.com/WANG-lp/low-latency-log"
 
 [dependencies]
 chrono = "0.4"

@@ -4,8 +4,9 @@ const MIN_WAIT_DURATION_NS: usize = 200_000;
 const MAX_WAIT_DURATION_NS: usize = 220_000;
 const THROUGHPUT_ITERATION: usize = 4_000_000;
 
-pub mod fastlog_bench;
+pub mod low_latency_log_bench;
 pub mod spdlog_bench;
+pub mod fast_log_bench;
 
 fn benchmark_latency_func(thread_count: usize, log_func: fn(usize, usize, f64)) {
     let mut latencies = Vec::with_capacity(thread_count * ITERATIONS);

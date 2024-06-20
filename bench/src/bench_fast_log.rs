@@ -1,9 +1,10 @@
 pub mod common;
 
-pub use common::low_latency_log_bench::bench;
+pub use common::fast_log_bench::bench_fast_log;
 use tcmalloc::TCMalloc;
+
 #[global_allocator]
 static GLOBAL: TCMalloc = TCMalloc;
 fn main() {
-    bench();
+    bench_fast_log();
 }

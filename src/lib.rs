@@ -360,7 +360,7 @@ impl Logger {
             time_format_str: None,
             queue_size: consts::MAX_QUEUE_SIZE,
             sleep_duration_nanos: consts::BACKGROUND_SLEEP_TIME_STEP_NANOS,
-            thread_name: String::from("fastlog"),
+            thread_name: String::from("low_latency_log"),
             sender: None,
             status: Arc::new(AtomicU8::new(0)),
         }

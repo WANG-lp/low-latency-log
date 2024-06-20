@@ -1,11 +1,11 @@
 # Fast and Low Latency Logging Library for Rust 🪵
 
 ## Introduction
-Fastlog is a high-performance and low-latency Rust logging library.
+low-latency-log is a high-performance and low-latency Rust logging library.
 
 ## Features
-* **Low Latency**: Fastlog is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
-* **Async Logging**: Fastlog offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
+* **Low Latency**: low-latency-log is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
+* **Async Logging**: low-latency-log offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
 
 ## Benchmark
 please refer [Benchmark](./BENCHMARK.md)
@@ -14,13 +14,13 @@ to build the benchmark binaries: `cargo b -r -p bench`
 
 ## Usage Example
 ```rust
-use fastlog::{info, Level};
+use low_latency_log::{info, Level};
 use std::fs;
 
 fn main() {
     let rc = RollingCondition::new().daily();
     // remember to keep the following guard, otherwise, global logger stops immediately when guard auto drops
-    let _guard = fastlog::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
+    let _guard = low_latency_log::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
         .cpu(1)
         .init()
         .unwrap();
@@ -37,10 +37,10 @@ fn main() {
 The following optimizations are in progress:
 - Optimize std `format!`.
 - Improve `ufmt` to provide more types of formatting support (e.g., floating-point types).
-- Support custom format types, as currently fastlog outputs fixed time and log formats.
+- Support custom format types, as currently low_latency_log outputs fixed time and log formats.
 - Optimize performance when use the `log` crate
 
-## Fastlog is Heavily Inspired by the Following Projects
+## low_latency_log is Heavily Inspired by the Following Projects
 
 * [`logflume`](https://github.com/SBentley/logflume)
 * [`quill`](https://github.com/odygrd/quill)

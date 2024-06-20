@@ -1,6 +1,6 @@
 use fastlog::RollingCondition;
 
-use crate::{benchmark_latency_func, benchmark_throughput_func};
+use crate::common::{benchmark_latency_func, benchmark_throughput_func};
 
 pub fn bench_fastlog() {
     println!("======= Fastlog Benchmark =======");

@@ -1,3 +1,5 @@
+workspace = { members = ["bench"] }
+
 [package]
 name = "fastlog"
 version = "0.1.0"
@@ -20,22 +22,6 @@ cfg-if = "1.0"
 [profile.release-opt]
 inherits = "release"
 opt-level = "z"
-
-
-[dev-dependencies]
-quanta = "0.12"
-tcmalloc = "0.3.0"
-fastrand = "2"
-
-bench = { path = "./bench" }
-
-[[example]]
-name = "bench_it"
-path = "src/bench_it.rs"
-
-[[example]]
-name = "bench_spdlog"
-path = "src/bench_spdlog.rs"
 
 [features]
 default = ["level-trace"]

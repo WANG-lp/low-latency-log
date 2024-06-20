@@ -1,4 +1,6 @@
-use bench::spdlog_bench::bench_spdlog;
+pub mod common;
+
+pub use common::spdlog_bench::bench_spdlog;
 use tcmalloc::TCMalloc;
 
 #[global_allocator]

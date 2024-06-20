@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use crate::{benchmark_latency_func, benchmark_throughput_func};
+use crate::common::{benchmark_latency_func, benchmark_throughput_func};
 
 static GLOBAL_SPDLOG_LOGGER: once_cell::sync::OnceCell<Arc<spdlog::Logger>> =
     once_cell::sync::OnceCell::new();

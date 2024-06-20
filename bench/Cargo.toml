@@ -5,7 +5,22 @@ edition = "2021"
 
 [dependencies]
 fastlog = { path = "../", features = ["level-info"] }
-spdlog-rs = { version = "0.3", features = ["level-info", "multi-thread", "flexible-string", "source-location"] }
+spdlog-rs = { version = "0.3", features = [
+    "level-info",
+    "multi-thread",
+    "flexible-string",
+    "source-location",
+] }
 quanta = "0.12"
 fastrand = "2"
 once_cell = "1"
+
+tcmalloc = "0.3.0"
+
+[[bin]]
+name = "bench_it"
+path = "src/bench_it.rs"
+
+[[bin]]
+name = "bench_spdlog"
+path = "src/bench_spdlog.rs"

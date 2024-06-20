@@ -11,6 +11,8 @@ Fastlog is a high-performance and low-latency Rust logging library.
 ## Benchmark
 please refer [Benchmark](./BENCHMARK.md)
 
+to build the benchmark binaries: `cargo b -r -p bench`
+
 ## Usage Example
 ```rust
 use fastlog::{info, Level};

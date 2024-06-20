@@ -4,8 +4,8 @@ workspace = { members = ["bench"] }
 name = "low_latency_log"
 version = "0.1.0"
 edition = "2021"
-description = "Low latency logging library."
-license = "Apache"
+description = "Fast and Low Latency Logging Library for Rust"
+license = "Apache-2.0"
 repository = "https://github.com/WANG-lp/low-latency-log"
 
 [dependencies]

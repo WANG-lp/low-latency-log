@@ -1,25 +1,30 @@
-# Fast and Low Latency Logging Library for Rust 🪵
+# Fast and Low Latency Logging Library for Rust
 
 ## Introduction
-low-latency-log is a high-performance and low-latency Rust logging library.
+`low-latency-log` is a high-performance and low-latency Rust logging library.
 
 ## Features
-* **Very Low Latency**: low-latency-log is designed and coded with performance factors in mind, such as limiting the size of critical data structures, avoiding any locks on critical paths, and caching formatted strings.
-* **Async Logging**: low-latency-log offloads all relatively heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
+* **Very Low Latency**: `low-latency-log` is designed with performance in mind, utilizing techniques such as minimizing the size of critical data structures, avoiding locks on critical paths, and caching formatted strings.
+* **Async Logging**: `low-latency-log` offloads all heavy logging operations (such as formatting, time conversion, etc.) to independent threads, ensuring the calling thread is not blocked.
 
 ## Benchmark
-please refer [Benchmark](./BENCHMARK.md)
+`low-latency-log` offers comparable p999 latency to [`quill`](https://github.com/odygrd/quill) and leads in throughput among `quil`, `spdlog-rs`, `ftlog`, and `fast_log`.
 
-to build the benchmark binaries: `cargo b -r -p bench`
+For more details, please refer to the [Benchmark](./BENCHMARK.md).
 
-## Usage Example
+To build the benchmark binaries, run: 
+```sh
+cargo b -r -p bench
+```
+
+## Usage example
 ```rust
 use low_latency_log::{info, Level};
 use std::fs;
 
 fn main() {
     let rc = RollingCondition::new().daily();
-    // remember to keep the following guard, otherwise, global logger stops immediately when guard auto drops
+    // Remember to keep the following guard, otherwise the global logger stops immediately when the guard auto-drops
     let _guard = low_latency_log::Logger::new(rc, "/dev/shm".to_string(), "log.log".to_string())
         .cpu(1)
         .init()
@@ -29,7 +34,7 @@ fn main() {
         info!("number {}", i);
     }
 
-    // _guard auto droped and log flushed
+    // _guard auto-dropped and log flushed
 }
 ```
 
@@ -37,10 +42,10 @@ fn main() {
 The following optimizations are in progress:
 - Optimize std `format!`.
 - Improve `ufmt` to provide more types of formatting support (e.g., floating-point types).
-- Support custom format types, as currently low_latency_log outputs fixed time and log formats.
-- Optimize performance when use the `log` crate
+- Support custom format types, as currently `low_latency_log` outputs fixed time and log formats.
+- Optimize performance when using the `log` crate.
 
-## low_latency_log is Heavily Inspired by the Following Projects
+## `low_latency_log` is heavily inspired by the following projects
 
 * [`logflume`](https://github.com/SBentley/logflume)
 * [`quill`](https://github.com/odygrd/quill)
@@ -48,6 +53,6 @@ The following optimizations are in progress:
 * [`rolling-file-rs`](https://github.com/Axcient/rolling-file-rs)
 
 ## License
-This project is under the Apache license.
+This project is licensed under the Apache License.
 
 Some code comes from the `logflume` project. Please refer to [LICENSE-LOGFLUME](./LICENSE-LOGFLUME) for more information.

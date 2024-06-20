@@ -7,13 +7,49 @@
     ======= LLL Benchmark =======
     Thread count 1 - Total Messages 2000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
-    |  56  |  62  |  75  |  93  | 241  |  400   |177806 |
+    |  58  |  66  |  77  |  83  | 216  |  310   | 2372  |
 
     Thread count 4 - Total Messages 8000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
-    |  54  |  64  |  79  | 104  | 243  |  437   | 9550  |
+    |  56  |  68  |  89  | 125  | 272  |  489   | 6922  |
 
-    Throughput is 4.217 million msgs/sec average, total time elapsed: 948.514363 ms for 4000000 log messages
+    Throughput is 4.563 million msgs/sec average, total time elapsed: 876.626608 ms for 4000000 log messages 
+
+    ================================
+    ```
+- quill:
+    ```bash
+    $ ./benchmarks/hot_path_latency/BENCHMARK_quill_hot_path_system_clock
+    running for 1 thread(s)
+    Thread Count 1 - Total messages 2000000 - Logger: Quill - Benchmark: Hot Path Latency / Nanoseconds
+    |  50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    |  22  |  25  |  31  |  35  |  50  |  206  |  970  |
+
+    running for 4 thread(s)
+    Thread Count 4 - Total messages 8000000 - Logger: Quill - Benchmark: Hot Path Latency / Nanoseconds
+    |  50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    |  33  |  33  |  41  |  66  |  166  |  783  |  20908  |
+
+    $ ./benchmarks/backend_throughput/BENCHMARK_quill_backend_throughput
+    ...
+    Throughput is 2.88 million msgs/sec average, total time elapsed: 1390 ms for 4000000 log messages
+    ```
+
+- fast_log:
+    ```bash
+    $ ./target/release/bench_fast_log
+    ======= fast_log Benchmark =======
+    Thread count 1 - Total Messages 2000000 - nanos/msg
+    | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    | 275  | 297  | 416  | 450  | 508  |  827   | 2075  |
+
+    Thread count 4 - Total Messages 8000000 - nanos/msg
+    | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    | 277  | 310  | 427  | 493  | 741  |  1093  | 18070 |
+
+    Throughput is 1.741 million msgs/sec average, total time elapsed: 2298.054076 ms for 4000000 log messages 
+
+    ================================
     ```
 
 - spdlog-rs:
@@ -22,16 +58,35 @@
     ======= Spdlog-rs Benchmark =======
     Thread count 1 - Total Messages 2000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
-    | 250  | 270  | 412  | 429  | 458  |  750   | 4243  |
+    | 252  | 270  | 404  | 427  | 456  |  735   | 8097  |
 
     Thread count 4 - Total Messages 8000000 - nanos/msg
     | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
-    | 258  | 291  | 352  | 418  | 639  |  1068  | 29454 |
+    | 266  | 310  | 385  | 464  | 775  |  1225  | 15581 |
 
-    Throughput is 2.577 million msgs/sec average, total time elapsed: 1552.470424 ms for 4000000 log messages 
+    Throughput is 2.605 million msgs/sec average, total time elapsed: 1535.519136 ms for 4000000 log messages 
 
     ================================
     ```
+
+- ftlog:
+    ```bash
+    $ ./target/release/bench_ftlog
+    ======= ftlog Benchmark =======
+    Thread count 1 - Total Messages 2000000 - nanos/msg
+    | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    | 341  | 362  | 483  | 516  | 568  |  1089  | 13370 |
+
+    Thread count 4 - Total Messages 8000000 - nanos/msg
+    | 50th | 75th | 90th | 95th | 99th | 99.9th | Worst |
+    | 333  | 379  | 479  | 587  | 966  |  1533  |118018 |
+
+    Throughput is 1.688 million msgs/sec average, total time elapsed: 2369.064489 ms for 4000000 log messages 
+
+    ================================
+    ```
+
+
 
 ## Tencent Cloud - Intel(R) Xeon(R) Gold 6231C - 4C16G - Rockylinux 9.3 - Linux 5.14.0 - Rust 1.79.0
 

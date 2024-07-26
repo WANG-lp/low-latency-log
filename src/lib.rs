@@ -470,11 +470,10 @@ impl Logger {
     }
 
     pub fn log(&self, func: LoggingFunc) {
-        match &self.sender {
-            Some(tx) => {
-                tx.send(func).unwrap();
+        if let Some(tx) = &self.sender {
+            if let Err(e) = tx.send(func) {
+                eprintln!("Send to logger failed: {}", e);
             }
-            None => (),
         }
     }
 }

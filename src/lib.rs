@@ -472,7 +472,15 @@ impl Logger {
     pub fn log(&self, func: LoggingFunc) {
         if let Some(tx) = &self.sender {
             if let Err(e) = tx.send(func) {
-                eprintln!("Send to logger failed: {}", e);
+                let err_msg = e.to_string();
+                let f = e.0;
+                let lv = f.level.to_str();
+                let output = (f.func)();
+                let output_str = output.as_ref();
+                eprintln!(
+                    "Send to logger failed: e={}, log_msg={}:{} {} {}",
+                    err_msg, f.file, f.line, lv, output_str
+                );
             }
         }
     }

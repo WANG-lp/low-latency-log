@@ -297,6 +297,7 @@ impl RollingLogger {
     }
 }
 
+#[derive(Debug)]
 pub struct LoggerGuard;
 
 impl Drop for LoggerGuard {
